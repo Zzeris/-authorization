@@ -1,5 +1,12 @@
 const db = require('../config/database');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+function generateToken(params = {}) {
+    return jwt.sign(params, process.env.APP_SECRET, {
+        expiresIn: 86400
+    });
+};
 
 class AuthController {
     async register(req, res) {
@@ -19,7 +26,10 @@ class AuthController {
             };
             const [user] = await db.query('insert into users set ?', [newUser]);
 
-            return res.json(user);
+            return res.json({
+                user,
+                token: generateToken({id: user.insertId})
+            });
         } catch (err) {
             return res.status(400).json(`error: Registration failed ${err}`);
         }
@@ -34,14 +44,19 @@ class AuthController {
             if (!userExists[0])
                 return res.status(400).json('User not found');
 
-            if (!await bcrypt.compare(password, userExists[0].password))
+            const user = userExists[0];
+
+            if (!await bcrypt.compare(password, user.password))
                 return res.status(400).json('Invalid password');
 
-            userExists[0].password = undefined;
+            user.password = undefined;
             
-            return res.json(userExists[0]);
+            return res.json({
+                user,
+                token: generateToken({id: user.id})
+            });
         } catch (err) {
-            return res.status(400).json(`error: ${err}`);
+            return res.status(400).json(`error: Authentication failed ${err}`);
         }
     }
 }
