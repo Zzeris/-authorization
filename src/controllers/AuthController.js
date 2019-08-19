@@ -8,7 +8,8 @@ class AuthController {
             
             const [userExists] = await db.query('select 1 from users where email = ?', [ email ]);
 
-            if (userExists[0]) return res.status(400).json('User alread exists');
+            if (userExists[0])
+                return res.status(400).json('User alread exists');
 
             const hash = await bcrypt.hash(password, 10);
             const newUser = {
@@ -26,7 +27,19 @@ class AuthController {
 
     async authenticate(req, res) {
         try {
-            return res.json('');
+            const { email, password } = req.body;
+
+            const [userExists] = await db.query('select id, name, email, password from users where email = ?', [ email ]);
+
+            if (!userExists[0])
+                return res.status(400).json('User not found');
+
+            if (!await bcrypt.compare(password, userExists[0].password))
+                return res.status(400).json('Invalid password');
+
+            userExists[0].password = undefined;
+            
+            return res.json(userExists[0]);
         } catch (err) {
             return res.status(400).json(`error: ${err}`);
         }
